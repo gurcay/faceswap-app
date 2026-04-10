@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html class="dark" lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI NEXUS - Face Swap</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "primary": "#99f7ff",
+        "primary-container": "#00f1fe",
+        "primary-dim": "#00e2ee",
+        "on-primary": "#005f64",
+        "secondary": "#d674ff",
+        "secondary-container": "#9800d0",
+        "tertiary": "#6fb5ff",
+        "surface": "#0e0e0e",
+        "surface-container": "#1a1919",
+        "surface-container-low": "#131313",
+        "surface-container-high": "#201f1f",
+        "surface-container-highest": "#262626",
+        "surface-bright": "#2c2c2c",
+        "surface-variant": "#262626",
+        "on-surface": "#ffffff",
+        "on-surface-variant": "#adaaaa",
+        "outline": "#777575",
+        "outline-variant": "#494847",
+        "error": "#ff716c",
+        "background": "#0e0e0e"
+      },
+      fontFamily: {
+        headline: ["Space Grotesk"],
+        body: ["Inter"],
+        label: ["Space Grotesk"]
+      }
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  }
+  .glass-panel {
+    background: rgba(14, 14, 14, 0.6);
+    backdrop-filter: blur(24px);
+  }
+  .ghost-border {
+    border: 1px solid rgba(73, 72, 71, 0.15);
+  }
+  .text-glow {
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+  }
+  .step-hidden { display: none; }
+  .step-visible { display: block; }
+
+  .card-select {
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .card-select:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 30px rgba(0, 242, 255, 0.12);
+  }
+  .card-select.selected {
+    box-shadow: 0 0 0 2px #00f1fe, 0 0 30px rgba(0, 242, 255, 0.25);
+  }
+
+  .fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 15px rgba(0, 242, 255, 0.3); }
+    50% { box-shadow: 0 0 35px rgba(0, 242, 255, 0.6); }
+  }
+  .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+  @keyframes spin-slow {
+    to { transform: rotate(360deg); }
+  }
+  .spin-slow { animation: spin-slow 2s linear infinite; }
+
+  @keyframes countdownPulse {
+    0% { transform: scale(1.4); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  video { transform: scaleX(-1); }
+
+  #qrcode canvas { margin: 0 auto; }
+</style>
+</head>
+
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 min-h-screen">
+
+<!-- ─── TOP NAV ─── -->
+<nav class="fixed top-0 w-full z-50 bg-[#0e0e0e]/60 backdrop-blur-3xl border-b border-[#ffffff]/15 shadow-[0_4px_30px_rgba(0,0,0,0.1)] flex justify-between items-center px-6 py-4">
+  <div class="text-2xl font-bold tracking-tighter text-[#00f2ff] uppercase drop-shadow-[0_0_8px_rgba(0,242,255,0.4)] font-headline cursor-pointer" onclick="goToStep(1)">
+    AI NEXUS
+  </div>
+  <div class="hidden md:flex items-center gap-8" id="navSteps">
+    <span data-nav="1" class="nav-step text-[#00f2ff] drop-shadow-[0_0_5px_rgba(0,242,255,0.8)] font-headline text-sm tracking-widest cursor-pointer">MESLEK</span>
+    <span data-nav="2" class="nav-step text-gray-600 font-headline text-sm tracking-widest cursor-pointer">CİNSİYET</span>
+    <span data-nav="3" class="nav-step text-gray-600 font-headline text-sm tracking-widest cursor-pointer">ŞABLON</span>
+    <span data-nav="4" class="nav-step text-gray-600 font-headline text-sm tracking-widest cursor-pointer">SONUÇ</span>
+  </div>
+  <div id="statusBadge" class="flex items-center gap-2 text-xs font-label tracking-wider">
+    <span class="w-2 h-2 rounded-full bg-gray-600"></span>
+    <span class="text-gray-500">YÜKLENİYOR</span>
+  </div>
+</nav>
+
+<!-- ─── MAIN ─── -->
+<main class="container mx-auto pt-28 px-4 md:px-6 pb-28">
+
+  <!-- Progress -->
+  <div class="max-w-5xl mx-auto mb-10">
+    <div class="flex justify-between items-end mb-3">
+      <div>
+        <span class="font-label text-xs uppercase tracking-[0.2em] text-primary/60" id="stepLabel">Meslek Seçimi</span>
+        <h1 class="font-headline text-3xl md:text-4xl font-bold tracking-tight text-glow" id="stepTitle">HAYALİNDEKİ MESLEĞİ SEÇ</h1>
+      </div>
+      <div class="text-right">
+        <span class="font-label text-xs uppercase tracking-[0.2em] text-secondary" id="stepCounter">AŞAMA 01/04</span>
+      </div>
+    </div>
+    <div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+      <div id="progressBar" class="h-full bg-gradient-to-r from-primary to-primary-container shadow-[0_0_15px_rgba(0,242,255,0.6)] transition-all duration-500" style="width:25%"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- STEP 1: Meslek Seçimi                    -->
+  <!-- ════════════════════════════════════════ -->
+  <section id="step1" class="step-visible fade-in max-w-7xl mx-auto">
+    <div id="professionGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <!-- JS ile doldurulacak -->
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- STEP 2: Cinsiyet Seçimi                  -->
+  <!-- ════════════════════════════════════════ -->
+  <section id="step2" class="step-hidden fade-in max-w-4xl mx-auto">
+    <!-- Geri butonu -->
+    <button onclick="goToStep(1)" class="mb-8 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label text-sm tracking-wider">
+      <span class="material-symbols-outlined text-lg">arrow_back</span> GERİ
+    </button>
+
+    <div class="text-center mb-10">
+      <p class="text-on-surface-variant font-body text-lg">
+        <span class="text-primary font-semibold" id="genderProfLabel">—</span> mesleğinde olmak istiyorsun!
+      </p>
+      <p class="text-on-surface-variant/60 text-sm mt-1">Şimdi karakterini seç</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6 md:gap-10">
+      <!-- Kız -->
+      <div id="genderGirl" class="card-select group relative overflow-hidden rounded-lg ghost-border bg-surface-container-low cursor-pointer aspect-[3/4]" onclick="selectGender('kadın')">
+        <img id="genderGirlImg" class="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" src="" alt="Kız"/>
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-6 text-center">
+          <span class="font-headline text-2xl md:text-3xl font-bold tracking-tight">KIZ</span>
+        </div>
+      </div>
+      <!-- Erkek -->
+      <div id="genderBoy" class="card-select group relative overflow-hidden rounded-lg ghost-border bg-surface-container-low cursor-pointer aspect-[3/4]" onclick="selectGender('erkek')">
+        <img id="genderBoyImg" class="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" src="" alt="Erkek"/>
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-6 text-center">
+          <span class="font-headline text-2xl md:text-3xl font-bold tracking-tight">ERKEK</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- STEP 3: Şablon Fotoğraf Seçimi           -->
+  <!-- ════════════════════════════════════════ -->
+  <section id="step3" class="step-hidden fade-in max-w-6xl mx-auto">
+    <button onclick="goToStep(2)" class="mb-8 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label text-sm tracking-wider">
+      <span class="material-symbols-outlined text-lg">arrow_back</span> GERİ
+    </button>
+
+    <div class="text-center mb-8">
+      <p class="text-on-surface-variant font-body text-lg">
+        <span class="text-primary font-semibold" id="templateProfLabel">—</span> &middot;
+        <span class="text-secondary font-semibold" id="templateGenderLabel">—</span>
+      </p>
+      <p class="text-on-surface-variant/60 text-sm mt-1">Beğendiğin şablonu seç</p>
+    </div>
+
+    <div id="templateGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <!-- JS ile doldurulacak -->
+    </div>
+
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- STEP 4: Kamera & Sonuç                   -->
+  <!-- ════════════════════════════════════════ -->
+  <section id="step4" class="step-hidden fade-in max-w-6xl mx-auto">
+
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <!-- Kamera + Geri sayım -->
+    <div id="countdownPhase" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Seçilen şablon -->
+        <div class="rounded-lg ghost-border bg-surface-container-low overflow-hidden">
+          <div class="p-3 border-b border-outline-variant/20">
+            <span class="font-label text-xs tracking-[0.2em] text-on-surface-variant/60 uppercase">Seçilen Şablon</span>
+          </div>
+          <div class="aspect-[3/4] bg-black flex items-center justify-center">
+            <img id="selectedTemplatePreview" class="w-full h-full object-contain" src="" alt="Şablon"/>
+          </div>
+        </div>
+        <!-- Kamera canlı önizleme -->
+        <div class="rounded-lg ghost-border bg-surface-container-low overflow-hidden">
+          <div class="p-3 border-b border-outline-variant/20">
+            <span class="font-label text-xs tracking-[0.2em] text-on-surface-variant/60 uppercase">Kamera</span>
+          </div>
+          <div class="aspect-[3/4] bg-black relative flex items-center justify-center">
+            <video id="camera" class="w-full h-full object-cover" playsinline autoplay></video>
+            <!-- Geri sayım overlay -->
+            <div id="countdownOverlay" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span id="countdownNumber" class="font-headline text-[140px] font-bold text-primary drop-shadow-[0_0_60px_rgba(0,242,255,0.8)] leading-none"></span>
+            </div>
+          </div>
+          <div class="p-3 text-center">
+            <span class="font-label text-xs tracking-[0.2em] text-on-surface-variant/40 uppercase">Fotoğraf otomatik çekilecek</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- İşlem -->
+    <div id="processingPhase" class="hidden text-center py-20">
+      <div class="inline-block w-16 h-16 border-2 border-primary/30 border-t-primary rounded-full spin-slow mb-6"></div>
+      <h2 class="font-headline text-2xl font-bold text-glow mb-2">DÖNÜŞÜM BAŞLADI</h2>
+      <p class="text-on-surface-variant">Yüzünüz dönüştürülüyor, lütfen bekleyin...</p>
+    </div>
+
+    <!-- 4C: Sonuç -->
+    <div id="resultPhase" class="hidden fade-in">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <!-- Sonuç görseli -->
+        <div class="md:col-span-2 rounded-lg ghost-border bg-surface-container-low overflow-hidden">
+          <div class="p-3 border-b border-outline-variant/20 flex justify-between items-center">
+            <span class="font-label text-xs tracking-[0.2em] text-on-surface-variant/60 uppercase">Sonuç</span>
+            <span id="resultMode" class="font-label text-[10px] tracking-[0.2em] text-primary/60 uppercase"></span>
+          </div>
+          <div class="bg-black flex items-center justify-center">
+            <img id="resultImage" class="w-full object-contain" src="" alt="Sonuç"/>
+          </div>
+        </div>
+
+        <!-- QR + Bilgi -->
+        <div class="flex flex-col gap-4">
+          <div class="rounded-lg ghost-border bg-surface-container-low p-6 text-center">
+            <span class="font-label text-xs tracking-[0.2em] text-on-surface-variant/60 uppercase block mb-4">QR KOD</span>
+            <div id="qrcode" class="flex justify-center mb-4"></div>
+            <p class="text-on-surface-variant/60 text-xs">Telefonunla tara ve fotoğrafını indir</p>
+          </div>
+
+          <div class="rounded-lg bg-primary/10 border border-primary/20 p-5 text-center">
+            <span class="material-symbols-outlined text-primary text-3xl mb-2 block">print</span>
+            <p class="font-headline font-bold text-primary text-sm">Fotoğrafınız yazıcıya gönderildi!</p>
+            <p class="text-on-surface-variant/60 text-xs mt-1">Çıktınızı almayı unutmayın</p>
+          </div>
+
+          <button onclick="resetAll()" class="bg-gradient-to-r from-secondary-container to-secondary text-white font-headline font-bold py-4 px-8 rounded-lg flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(214,116,255,0.3)] hover:shadow-[0_0_40px_rgba(214,116,255,0.5)] transition-all active:scale-95">
+            <span class="material-symbols-outlined">restart_alt</span> YENİ FOTOĞRAF ÇEK
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ─── BOTTOM NAV ─── -->
+<footer class="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/80 backdrop-blur-xl flex justify-around items-center px-4 pb-6 pt-2 border-t border-[#ffffff]/10 shadow-[0_-10px_40px_rgba(0,242,255,0.05)]">
+  <div data-foot="1" class="foot-step flex flex-col items-center justify-center text-[#00f2ff] bg-[#00f2ff]/10 rounded-sm py-2 px-6 cursor-pointer" onclick="goToStep(1)">
+    <span class="material-symbols-outlined">face_6</span>
+    <span class="font-label text-[10px] uppercase tracking-[0.1em] mt-1">MESLEK</span>
+  </div>
+  <div data-foot="2" class="foot-step flex flex-col items-center justify-center text-gray-600 py-2 px-6 cursor-pointer" onclick="goToStep(2)">
+    <span class="material-symbols-outlined">wc</span>
+    <span class="font-label text-[10px] uppercase tracking-[0.1em] mt-1">CİNSİYET</span>
+  </div>
+  <div data-foot="3" class="foot-step flex flex-col items-center justify-center text-gray-600 py-2 px-6 cursor-pointer" onclick="goToStep(3)">
+    <span class="material-symbols-outlined">photo_library</span>
+    <span class="font-label text-[10px] uppercase tracking-[0.1em] mt-1">ŞABLON</span>
+  </div>
+  <div data-foot="4" class="foot-step flex flex-col items-center justify-center text-gray-600 py-2 px-6 cursor-pointer" onclick="goToStep(4)">
+    <span class="material-symbols-outlined">auto_awesome</span>
+    <span class="font-label text-[10px] uppercase tracking-[0.1em] mt-1">SONUÇ</span>
+  </div>
+</footer>
+
+<!-- ─── HUD Decor ─── -->
+<div class="fixed top-1/2 left-4 -translate-y-1/2 flex flex-col gap-8 opacity-20 pointer-events-none hidden lg:flex">
+  <div class="w-px h-32 bg-gradient-to-b from-transparent via-primary to-transparent"></div>
+  <div class="text-[8px] font-label tracking-[0.5em] rotate-90 origin-left translate-x-1 whitespace-nowrap">NEXUS_ENGINE</div>
+</div>
+<div class="fixed top-1/2 right-4 -translate-y-1/2 flex flex-col gap-8 opacity-20 pointer-events-none hidden lg:flex items-end">
+  <div class="text-[8px] font-label tracking-[0.5em] -rotate-90 origin-right -translate-x-1 whitespace-nowrap">FACE_SWAP_v2</div>
+  <div class="w-px h-32 bg-gradient-to-b from-transparent via-primary to-transparent"></div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- JAVASCRIPT                                   -->
+<!-- ════════════════════════════════════════════ -->
+<script>
+// ─── State ───
+let currentStep = 1;
+let categories = {};
+let selectedProfession = null;
+let selectedGender = null;
+let selectedTemplate = null;
+let cameraStream = null;
+let capturedImageData = null;
+let allTemplatesVisible = false;
+let countdownTimer = null;
+
+const PROFESSION_ICONS = {
+  'Astronot': 'rocket_launch',
+  'Aşçı': 'restaurant',
+  'Bilim İnsanı': 'science',
+  'Doktor': 'medical_services',
+  'İtfaiyeci': 'local_fire_department',
+  'Müzisyen': 'music_note',
+  'Öğretmen': 'school',
+  'Pilot': 'flight',
+  'Polis': 'local_police',
+  'Sporcu': 'sports_soccer'
+};
+
+const STEP_TITLES = {
+  1: { label: 'Meslek Seçimi', title: 'HAYALİNDEKİ MESLEĞİ SEÇ' },
+  2: { label: 'Cinsiyet Seçimi', title: 'KARAKTERİNİ BELİRLE' },
+  3: { label: 'Şablon Seçimi', title: 'ŞABLONUNU SEÇ' },
+  4: { label: 'Kamera & Sonuç', title: 'FOTOĞRAFINI ÇEK' }
+};
+
+// ─── Init ───
+document.addEventListener('DOMContentLoaded', () => {
+  loadStatus();
+  loadCategories();
+});
+
+async function loadStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const s = await res.json();
+    const badge = document.getElementById('statusBadge');
+    if (s.face_swapper) {
+      badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]"></span><span class="text-green-400">SİSTEM AKTİF</span>';
+    } else {
+      badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span class="text-red-400">MODEL YOK</span>';
+    }
+  } catch {}
+}
+
+async function loadCategories() {
+  try {
+    const res = await fetch('/api/categories');
+    categories = await res.json();
+    renderProfessions();
+  } catch (e) {
+    console.error('Kategori yükleme hatası:', e);
+  }
+}
+
+// ─── Step Navigation ───
+function goToStep(step) {
+  // Adıma geçiş için gerekli veri kontrolü
+  if (step >= 2 && !selectedProfession) return;
+  if (step >= 3 && !selectedGender) return;
+  if (step >= 4 && !selectedTemplate) return;
+
+  // Kamerayı kapat (step 4'ten çıkınca)
+  if (currentStep === 4 && step !== 4) stopCamera();
+
+  currentStep = step;
+
+  // Bölümleri göster/gizle
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('step' + i);
+    el.className = (i === step) ? 'step-visible fade-in max-w-' + (i===1?'7':'6') + 'xl mx-auto' : 'step-hidden';
+  }
+  if (step === 1) document.getElementById('step1').className = 'step-visible fade-in max-w-7xl mx-auto';
+
+  // Progress
+  document.getElementById('progressBar').style.width = (step * 25) + '%';
+  document.getElementById('stepCounter').textContent = 'AŞAMA 0' + step + '/04';
+  document.getElementById('stepLabel').textContent = STEP_TITLES[step].label;
+  document.getElementById('stepTitle').textContent = STEP_TITLES[step].title;
+
+  // Nav
+  document.querySelectorAll('.nav-step').forEach(el => {
+    const n = parseInt(el.dataset.nav);
+    if (n === step) {
+      el.className = 'nav-step text-[#00f2ff] drop-shadow-[0_0_5px_rgba(0,242,255,0.8)] font-headline text-sm tracking-widest cursor-pointer';
+    } else if (n < step) {
+      el.className = 'nav-step text-primary/40 font-headline text-sm tracking-widest cursor-pointer';
+    } else {
+      el.className = 'nav-step text-gray-600 font-headline text-sm tracking-widest cursor-pointer';
+    }
+  });
+
+  // Footer
+  document.querySelectorAll('.foot-step').forEach(el => {
+    const n = parseInt(el.dataset.foot);
+    if (n === step) {
+      el.className = 'foot-step flex flex-col items-center justify-center text-[#00f2ff] bg-[#00f2ff]/10 rounded-sm py-2 px-6 cursor-pointer shadow-[inset_0_0_10px_rgba(0,242,255,0.2)]';
+    } else {
+      el.className = 'foot-step flex flex-col items-center justify-center text-gray-600 py-2 px-6 cursor-pointer hover:bg-[#ffffff]/5 transition-colors';
+    }
+  });
+
+  // Step 4: otomatik akış başlat
+  if (step === 4) {
+    document.getElementById('countdownPhase').classList.remove('hidden');
+    document.getElementById('processingPhase').classList.add('hidden');
+    document.getElementById('resultPhase').classList.add('hidden');
+    document.getElementById('selectedTemplatePreview').src = '/api/image/' + encodeURIComponent(selectedProfession) + '/' + encodeURIComponent(selectedTemplate);
+    capturedImageData = null;
+    startCamera();
+  }
+}
+
+// ─── STEP 1: Meslekler ───
+function renderProfessions() {
+  const grid = document.getElementById('professionGrid');
+  grid.innerHTML = '';
+
+  const profNames = Object.keys(categories).sort((a, b) => a.localeCompare(b, 'tr'));
+  const firstProf = profNames[0];
+
+  profNames.forEach((name, idx) => {
+    const icon = PROFESSION_ICONS[name] || 'work';
+    const imgs = categories[name].images;
+    // İlk görseli kapak olarak kullan
+    const coverImg = imgs.length ? '/api/image/' + encodeURIComponent(name) + '/' + encodeURIComponent(imgs[0]) : '';
+
+    const isLarge = idx === 0; // İlk kart büyük
+
+    const card = document.createElement('div');
+    card.className = (isLarge
+      ? 'md:col-span-2 md:row-span-2 min-h-[320px] '
+      : 'h-64 ')
+      + 'card-select group relative overflow-hidden rounded-lg ghost-border bg-surface-container-low cursor-pointer';
+
+    card.innerHTML = `
+      ${coverImg ? `<img class="absolute inset-0 w-full h-full object-cover opacity-50 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" src="${coverImg}" alt="${name}"/>` : ''}
+      <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+      <div class="absolute bottom-0 left-0 p-5">
+        <span class="material-symbols-outlined text-primary/70 text-2xl mb-1 block">${icon}</span>
+        ${isLarge ? `<span class="font-label text-[10px] tracking-[0.3em] text-primary mb-1 block">KATEGORİ</span>` : ''}
+        <h3 class="font-headline ${isLarge ? 'text-2xl' : 'text-lg'} font-bold tracking-tight uppercase">${name}</h3>
+        <span class="text-on-surface-variant/60 text-xs">${imgs.length} şablon</span>
+      </div>
+    `;
+
+    card.onclick = () => selectProfession(name);
+    grid.appendChild(card);
+  });
+}
+
+function selectProfession(name) {
+  selectedProfession = name;
+  selectedGender = null;
+  selectedTemplate = null;
+
+  // Cinsiyet kartları için temsili görseller bul
+  const imgs = categories[name].images;
+  const girlImg = imgs.find(f => f.includes('kadın'));
+  const boyImg = imgs.find(f => f.includes('erkek'));
+
+  document.getElementById('genderProfLabel').textContent = name;
+
+  if (girlImg) {
+    document.getElementById('genderGirlImg').src = '/api/image/' + encodeURIComponent(name) + '/' + encodeURIComponent(girlImg);
+  }
+  if (boyImg) {
+    document.getElementById('genderBoyImg').src = '/api/image/' + encodeURIComponent(name) + '/' + encodeURIComponent(boyImg);
+  }
+
+  goToStep(2);
+}
+
+// ─── STEP 2: Cinsiyet ───
+function selectGender(gender) {
+  selectedGender = gender;
+  selectedTemplate = null;
+  allTemplatesVisible = false;
+
+  const genderTR = gender === 'kadın' ? 'Kız' : 'Erkek';
+  document.getElementById('templateProfLabel').textContent = selectedProfession;
+  document.getElementById('templateGenderLabel').textContent = genderTR;
+
+  renderTemplates();
+  goToStep(3);
+}
+
+// ─── STEP 3: Şablonlar ───
+function renderTemplates() {
+  const grid = document.getElementById('templateGrid');
+  grid.innerHTML = '';
+
+  const imgs = categories[selectedProfession].images.filter(f => f.includes(selectedGender));
+
+  imgs.forEach((filename, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card-select group relative overflow-hidden rounded-lg ghost-border bg-surface-container-low cursor-pointer aspect-[3/4]';
+
+    card.innerHTML = `
+      <img class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-500" src="/api/image/${encodeURIComponent(selectedProfession)}/${encodeURIComponent(filename)}" alt="Şablon ${idx+1}"/>
+      <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+    `;
+
+    card.onclick = () => selectTemplate(filename, card);
+    grid.appendChild(card);
+  });
+}
+
+function selectTemplate(filename, card) {
+  selectedTemplate = filename;
+
+  // Seçim vurgusu
+  document.querySelectorAll('#templateGrid .card-select').forEach(el => el.classList.remove('selected'));
+  card.classList.add('selected');
+
+  goToStep(4);
+}
+
+// ─── STEP 4: Kamera (tamamen otomatik) ───
+async function startCamera() {
+  try {
+    const video = document.getElementById('camera');
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+    });
+    video.srcObject = cameraStream;
+
+    // Kamera hazır olunca geri sayım başlat
+    video.onplaying = () => {
+      video.onplaying = null;
+      startCountdown(5);
+    };
+  } catch (e) {
+    console.error('Kamera hatası:', e);
+    alert('Kamera açılamadı: ' + e.message);
+    goToStep(3);
+  }
+}
+
+function startCountdown(seconds) {
+  clearInterval(countdownTimer);
+  const numEl = document.getElementById('countdownNumber');
+  let remaining = seconds;
+
+  numEl.textContent = remaining;
+
+  countdownTimer = setInterval(() => {
+    remaining--;
+    if (remaining > 0) {
+      numEl.textContent = remaining;
+      numEl.style.animation = 'none';
+      void numEl.offsetWidth;
+      numEl.style.animation = 'countdownPulse 0.4s ease-out';
+    } else {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      captureAndProcess();
+    }
+  }, 1000);
+}
+
+function stopCountdown() {
+  clearInterval(countdownTimer);
+  countdownTimer = null;
+}
+
+function stopCamera() {
+  stopCountdown();
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+}
+
+function captureAndProcess() {
+  // Fotoğraf çek
+  const video = document.getElementById('camera');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+
+  capturedImageData = canvas.toDataURL('image/jpeg', 0.95);
+  stopCamera();
+
+  // Direkt işleme geç
+  document.getElementById('countdownPhase').classList.add('hidden');
+  document.getElementById('processingPhase').classList.remove('hidden');
+  confirmPhoto();
+}
+
+async function confirmPhoto() {
+  if (!capturedImageData) return;
+
+  try {
+    const res = await fetch('/api/capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: selectedProfession,
+        image: selectedTemplate,
+        capturedImage: capturedImageData
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showResult(data);
+    } else {
+      alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+      // Tekrar dene
+      document.getElementById('processingPhase').classList.add('hidden');
+      document.getElementById('countdownPhase').classList.remove('hidden');
+      capturedImageData = null;
+      startCamera();
+    }
+  } catch (e) {
+    alert('Bağlantı hatası: ' + e.message);
+    document.getElementById('processingPhase').classList.add('hidden');
+    document.getElementById('countdownPhase').classList.remove('hidden');
+    capturedImageData = null;
+    startCamera();
+  }
+}
+
+function showResult(data) {
+  document.getElementById('processingPhase').classList.add('hidden');
+  document.getElementById('resultPhase').classList.remove('hidden');
+
+  // Sonuç görseli
+  document.getElementById('resultImage').src = data.result;
+  document.getElementById('resultMode').textContent = data.mode || '';
+
+  // QR kodu — file.io linki varsa onu kullan (1 indirmede silinir)
+  const qrEl = document.getElementById('qrcode');
+  qrEl.innerHTML = '';
+  const qrUrl = data.download_url || (window.location.origin + '/api/result/' + data.filename);
+  new QRCode(qrEl, {
+    text: qrUrl,
+    width: 160,
+    height: 160,
+    colorDark: '#00f1fe',
+    colorLight: '#0e0e0e',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function resetAll() {
+  stopCamera();
+  selectedProfession = null;
+  selectedGender = null;
+  selectedTemplate = null;
+  capturedImageData = null;
+  allTemplatesVisible = false;
+  goToStep(1);
+}
+</script>
+
+</body>
+</html>

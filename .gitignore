@@ -1,0 +1,29 @@
+# Virtual environment
+venv/
+
+# Models (too large for git, download via download_model.py)
+models/*.onnx
+models/*.pth
+
+# GFPGAN auto-downloaded weights
+gfpgan/
+
+# InsightFace cached models
+.insightface/
+
+# Results & temp
+results/
+temp/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

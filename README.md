@@ -232,7 +232,8 @@ faceswap-app/
 ├── results/                # Üretilen sonuçlar (git'e dahil değil)
 ├── requirements.txt        # Python bağımlılıkları
 ├── download_model.py       # Tüm modelleri indir
-├── start.sh                # Tek komutla kurulum + başlatma
+├── start.sh                # macOS/Linux başlatma scripti
+├── start.bat               # Windows başlatma scripti
 └── .gitignore
 ```
 
@@ -244,7 +245,7 @@ faceswap-app/
 - Webcam
 - Internet bağlantısı (ilk kurulumda model indirme için)
 
-### Hızlı Başlangıç
+### Hızlı Başlangıç (macOS / Linux)
 
 ```bash
 git clone https://github.com/gurcay/faceswap-app.git
@@ -252,7 +253,19 @@ cd faceswap-app
 ./start.sh
 ```
 
-`start.sh` şunları otomatik yapar:
+### Hızlı Başlangıç (Windows)
+
+```cmd
+git clone https://github.com/gurcay/faceswap-app.git
+cd faceswap-app
+start.bat
+```
+
+Veya `start.bat` dosyasına çift tıklayarak da başlatabilirsiniz.
+
+> **Windows notu:** Python 3.8+ sisteme kurulu olmalı ve PATH'te bulunmalıdır. [python.org](https://www.python.org/downloads/) adresinden indirirken "Add Python to PATH" seçeneğini işaretleyin.
+
+Her iki script de (`start.sh` / `start.bat`) aynı işlemi yapar:
 1. Python virtual environment oluşturur
 2. Bağımlılıkları kurar (`requirements.txt`)
 3. AI modellerini indirir (~900 MB, ilk seferde)

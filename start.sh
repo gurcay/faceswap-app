@@ -29,14 +29,15 @@ else
     echo "[2/3] ✓ AI modelleri mevcut"
 fi
 
-# 3) basicsr torchvision uyumluluk patch'i
-DEGRADATIONS_FILE="./venv/lib/python3.*/site-packages/basicsr/data/degradations.py"
-for f in $DEGRADATIONS_FILE; do
-    if [ -f "$f" ] && grep -q "functional_tensor" "$f" 2>/dev/null; then
-        sed -i.bak 's/from torchvision.transforms.functional_tensor import rgb_to_grayscale/from torchvision.transforms.functional import rgb_to_grayscale/' "$f"
-        echo "      ✓ basicsr uyumluluk patch'i uygulandı"
-    fi
-done
+# 3) basicsr torchvision uyumluluk patch'i (cross-platform Python ile)
+./venv/bin/python -c "
+import pathlib
+for f in pathlib.Path('venv').rglob('basicsr/data/degradations.py'):
+    txt = f.read_text()
+    if 'functional_tensor' in txt:
+        f.write_text(txt.replace('from torchvision.transforms.functional_tensor import rgb_to_grayscale', 'from torchvision.transforms.functional import rgb_to_grayscale'))
+        print('      ✓ basicsr uyumluluk patch\'i uygulandı')
+" 2>/dev/null
 
 # 4) Başlat
 echo "[3/3] Uygulama başlatılıyor..."
